@@ -119,6 +119,22 @@ A continuum fitter class. This reads in a 1D spectrum and allows continuum fitti
 Class for measuring the column density of Lyman Limit Systems (LLS)
     using both curve_fit and MCMC methods.
 
+### LLSVoigtFitter (`LLSVoigtFitter`)
+
+Simultaneous fit of HI Lyman series Voigt profiles and the LLS opacity break
+at 912 Å using a joint MCMC likelihood. Wraps `rbvfit.vfit_mcmc.vfit` and
+`LLSFitter`, combining their log-likelihoods over a shared parameter vector.
+Supports both `emcee` and `zeus` samplers.
+
+Parameter vector: `[logN_1..n, b_1..n, v_1..n, C0, C1]`
+
+The total column density `N_total = Σ 10^logN_i` couples the Voigt profile
+components to the LLS break model. The two spectra (Voigt and LLS) can be
+fully independent — different files, instruments, or wavelength grids.
+
+See [full documentation](LLSVoigtFitter.md) and
+`src/rbcodes/IGM/examples/lls_voigt_examples.py` for a worked example.
+
 ## Functions
 
 ### compute_EW() (`compute_EW`)

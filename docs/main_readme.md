@@ -123,6 +123,7 @@ Central Python class for absorption line spectroscopy — load, shift, slice, fi
 | [ransac_contfit.py](IGM/) | RANSAC-based continuum fitting |
 | [lens_sep_to_kpc.py](IGM/lens_sep_to_kpc.md) | Sightline separation in physical units |
 | [LLSFitter.py](GUIs/LLSFitter/LLSFitter.md) | Lyman Limit System column density measurement |
+| [LLSVoigtFitter.py](IGM/LLSVoigtFitter.md) | Simultaneous HI Lyman series Voigt profile + LLS break joint MCMC fitter (emcee/zeus) |
 
 ---
 
