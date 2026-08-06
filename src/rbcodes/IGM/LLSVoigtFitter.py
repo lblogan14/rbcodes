@@ -48,6 +48,10 @@ Example
     print(fitter.get_results())
 """
 
+import sys
+import multiprocessing as mp
+import warnings
+
 import numpy as np
 import matplotlib.pyplot as plt
 import corner
@@ -59,6 +63,22 @@ try:
     HAS_ZEUS = True
 except ImportError:
     HAS_ZEUS = False
+
+# ---------------------------------------------------------------------------
+# Multiprocessing pool — matches rbvfit's OptimizedPool pattern
+# ---------------------------------------------------------------------------
+if sys.platform.startswith('win'):
+    MP_CONTEXT = 'spawn'
+elif sys.platform.startswith('darwin') or sys.platform.startswith('linux'):
+    MP_CONTEXT = 'fork'
+else:
+    MP_CONTEXT = 'fork'
+
+try:
+    OptimizedPool = mp.get_context(MP_CONTEXT).Pool
+except (AttributeError, RuntimeError):
+    OptimizedPool = mp.Pool
+    MP_CONTEXT = 'default'
 
 
 class LLSVoigtFitter:
@@ -188,8 +208,40 @@ class LLSVoigtFitter:
         self.theta = result.x
         return result
 
+    # ------------------------------------------------------------------
+    # Sampler setup helpers (with optional multiprocessing pool)
+    # ------------------------------------------------------------------
+
+    def _setup_emcee_sampler(self, nwalkers, use_pool=True):
+        """Return (emcee.EnsembleSampler, pool_or_None)."""
+        if use_pool:
+            try:
+                pool    = OptimizedPool()
+                sampler = emcee.EnsembleSampler(nwalkers, self.ndim, self.lnprob, pool=pool)
+                return sampler, pool
+            except Exception as e:
+                warnings.warn(f"Failed to create multiprocessing pool: {e}. "
+                              "Falling back to single-process.")
+        sampler = emcee.EnsembleSampler(nwalkers, self.ndim, self.lnprob)
+        return sampler, None
+
+    def _setup_zeus_sampler(self, nwalkers, use_pool=True):
+        """Return (zeus.EnsembleSampler, pool_or_None)."""
+        if not HAS_ZEUS:
+            raise ImportError("zeus not installed: pip install zeus-mcmc")
+        if use_pool:
+            try:
+                pool    = OptimizedPool()
+                sampler = zeus.EnsembleSampler(nwalkers, self.ndim, self.lnprob, pool=pool)
+                return sampler, pool
+            except Exception as e:
+                warnings.warn(f"Failed to create multiprocessing pool: {e}. "
+                              "Falling back to single-process.")
+        sampler = zeus.EnsembleSampler(nwalkers, self.ndim, self.lnprob)
+        return sampler, None
+
     def fit(self, sampler='emcee', nwalkers=64, nsteps=1000,
-            burnin=200, progress=True):
+            burnin=200, progress=True, use_pool=True):
         """
         Run MCMC. Call fit_quick() first for a good starting point.
 
@@ -205,6 +257,10 @@ class LLSVoigtFitter:
             Steps discarded from the front of the chain.
         progress : bool
             Show tqdm progress bar.
+        use_pool : bool
+            Use a multiprocessing pool to parallelise likelihood evaluations
+            across walkers. Default True. Set False for debugging or when
+            running inside a jupyter notebook with %autoreload.
 
         Returns
         -------
@@ -215,15 +271,19 @@ class LLSVoigtFitter:
         p0 = np.clip(p0, self.lb + 1e-10, self.ub - 1e-10)
 
         if sampler == 'emcee':
-            s = emcee.EnsembleSampler(nwalkers, self.ndim, self.lnprob)
+            s, pool = self._setup_emcee_sampler(nwalkers, use_pool=use_pool)
         elif sampler == 'zeus':
-            if not HAS_ZEUS:
-                raise ImportError("zeus not installed: pip install zeus-mcmc")
-            s = zeus.EnsembleSampler(nwalkers, self.ndim, self.lnprob)
+            s, pool = self._setup_zeus_sampler(nwalkers, use_pool=use_pool)
         else:
             raise ValueError(f"sampler must be 'emcee' or 'zeus', got '{sampler}'")
 
-        s.run_mcmc(p0, nsteps, progress=progress)
+        try:
+            s.run_mcmc(p0, nsteps, progress=progress)
+        finally:
+            if pool is not None:
+                pool.close()
+                pool.join()
+
         self.sampler      = s
         self.sampler_name = sampler
         self.burnin       = burnin

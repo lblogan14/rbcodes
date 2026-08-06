@@ -79,7 +79,7 @@ fitter = LLSVoigtFitter(
 )
 
 fitter.fit_quick()                                        # scipy starting point
-fitter.fit(sampler='zeus', nwalkers=64, nsteps=2000, burnin=400)
+fitter.fit(sampler='zeus', nwalkers=64, nsteps=2000, burnin=400, use_pool=True)
 
 print(fitter.get_results())
 fitter.plot_fit()
@@ -111,7 +111,7 @@ starting point before MCMC.
 
 ---
 
-### `fit(sampler='emcee', nwalkers=64, nsteps=1000, burnin=200, progress=True)`
+### `fit(sampler='emcee', nwalkers=64, nsteps=1000, burnin=200, progress=True, use_pool=True)`
 
 Run MCMC. Returns `(sampler_obj, flat_samples)`.
 
@@ -121,6 +121,7 @@ Run MCMC. Returns `(sampler_obj, flat_samples)`.
 | `nwalkers` | 64 | Number of walkers |
 | `nsteps` | 1000 | Total steps per walker |
 | `burnin` | 200 | Steps discarded from chain front |
+| `use_pool` | `True` | Parallelise likelihood evaluations with a multiprocessing pool. Uses `fork` on Mac/Linux and `spawn` on Windows. Set `False` when running inside a Jupyter notebook with `%autoreload`. |
 
 ---
 
@@ -164,6 +165,12 @@ Corner plot of posterior samples with 16/50/84 percentile titles.
 - For multi-component fits, the LLS break uses `N_total = Σ 10^logN_i`, which
   is physically correct: the Lyman limit opacity depends on total integrated
   column, not velocity structure.
+- **Multiprocessing**: `fit()` uses a `fork`-based pool on Mac/Linux
+  (`spawn` on Windows) to parallelise likelihood evaluations across walkers,
+  following the same pattern as `rbvfit`. The pool is always closed and joined
+  cleanly, even if `run_mcmc` raises. If the pool cannot be created (e.g.,
+  inside certain Jupyter environments), the fitter falls back to single-process
+  automatically with a warning. Pass `use_pool=False` to opt out explicitly.
 
 ---
 

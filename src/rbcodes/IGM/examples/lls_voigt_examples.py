@@ -146,8 +146,10 @@ def example_J1154_single_component(
     fitter.fit_quick()
 
     print(f"\n--- MCMC ({sampler}) ---")
+    # use_pool=True (default) parallelises likelihood evaluations across walkers.
+    # Set use_pool=False when running inside a Jupyter notebook with %autoreload.
     fitter.fit(sampler=sampler, nwalkers=nwalkers,
-               nsteps=nsteps, burnin=burnin, progress=True)
+               nsteps=nsteps, burnin=burnin, progress=True, use_pool=True)
 
     # ------------------------------------------------------------------
     # 4. Results + plots
